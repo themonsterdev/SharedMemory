@@ -1,61 +1,45 @@
 #include "Stdafx.h"
 #include "Process.h"
 
-#include "Stdafx.h"
-#include "Process.h"
-
-HANDLE GetProcessHandle(const char* processName)
+HANDLE GetProcessId(const char* processName)
 {
 	ULONG bufferSize = 0;
-	NTSTATUS ntStatus = ZwQuerySystemInformation(SystemProcessInformation, NULL, 0, &bufferSize);
-	//if (!NT_SUCCESS(ntStatus))
-	//{
-	//	DbgPrintEx(0, 0, "failed to get buffer size (GetProcessHandle)");
-	//	return ntStatus;
-	//}
+	ZwQuerySystemInformation(SystemProcessInformation, NULL, 0, &bufferSize);
 
-	/*if (bufferSize == 0)
-	{
-		DbgPrintEx(0, 0, "failed to get buffer size to zero (GetProcessHandle)");
-		return NULL;
-	}*/
-
-	PVOID buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, bufferSize, 'zkjb');
+	PVOID buffer = ExAllocatePool2(POOL_FLAG_NON_PAGED, bufferSize, 'jldg');
 	if (buffer == 0)
 	{
-		DbgPrint("failed to allocate pool (GetProcessHandle)");
-		return NULL;
+		DbgPrint("failed to allocate pool (GetProcessId)");
+		return 0;
 	}
 
 	ANSI_STRING processNameAnsi = { 0 };
 	UNICODE_STRING processNameUnicode = { 0 };
 	RtlInitAnsiString(&processNameAnsi, processName);
-
-	ntStatus = RtlAnsiStringToUnicodeString(&processNameUnicode, &processNameAnsi, TRUE);
-	if (!NT_SUCCESS(ntStatus))
+	if (!NT_SUCCESS(RtlAnsiStringToUnicodeString(&processNameUnicode, &processNameAnsi, TRUE)))
 	{
-		DbgPrint("failed to convert string (GetProcessHandle)");
+		DbgPrint("failed to convert string (GetProcessId)");
 		RtlFreeUnicodeString(&processNameUnicode);
-		ExFreePoolWithTag(buffer, 'zkjb');
-		return NULL;
+		return 0;
 	}
 
 	PSYSTEM_PROCESS_INFO processInfo = (PSYSTEM_PROCESS_INFO)buffer;
-
-	ntStatus = ZwQuerySystemInformation(SystemProcessInformation, processInfo, bufferSize, NULL);
-	if (NT_SUCCESS(ntStatus))
+	if (NT_SUCCESS(ZwQuerySystemInformation(SystemProcessInformation, processInfo, bufferSize, NULL)))
 	{
 		while (processInfo->NextEntryOffset)
 		{
 			if (RtlCompareUnicodeString(&processNameUnicode, &processInfo->ImageName, TRUE) == 0)
 			{
+				RtlFreeUnicodeString(&processNameUnicode);
 				return processInfo->UniqueProcessId;
 			}
 			processInfo = (PSYSTEM_PROCESS_INFO)((PBYTE)processInfo + processInfo->NextEntryOffset);
 		}
 	}
+	else
+	{
+		ExFreePoolWithTag(buffer, 'jldg');
+	}
 
-	RtlFreeUnicodeString(&processNameUnicode);
-	ExFreePoolWithTag(buffer, 'zkjb');
-	return NULL;
+	return 0;
 }

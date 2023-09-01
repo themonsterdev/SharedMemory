@@ -8,14 +8,33 @@
 
 using namespace std;
 
-typedef struct _KM_REQUEST_GET_PROCESS_HANDLE
-{
-	UINT32 count;
-	UINT32 count2;
-}KM_REQUEST_GET_PROCESS_HANDLE, * PKM_REQUEST_GET_PROCESS_HANDLE;
+typedef struct _KM_DRIVER_COMMAND {
+	UINT8		code;
+
+	// Memory
+	PVOID		buffer;
+	ULONG64		address;
+	ULONG		size;
+
+	// Process
+	CHAR processName[32];
+	HANDLE processId;
+}KM_DRIVER_COMMAND, * PKM_DRIVER_COMMAND;
 
 // shared memory mapping
 HANDLE hMapFileW = NULL;
+
+HANDLE GetProcessId(PKM_DRIVER_COMMAND pCommand, const char* processName)
+{
+	pCommand->code = 1;
+	pCommand->processId = NULL;
+	strcpy_s(pCommand->processName, processName);
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Get Process Id)." << endl;
+
+	while (pCommand->code == 1 || pCommand->processId == NULL);
+	return pCommand->processId;
+}
 
 int main()
 {
@@ -31,29 +50,29 @@ int main()
 		return EXIT_FAILURE;
 	}
 
-	const auto pRequestPointer = (PKM_REQUEST_GET_PROCESS_HANDLE)MapViewOfFile(
+	const auto pCommand = (PKM_DRIVER_COMMAND)MapViewOfFile(
 		hMapFileW,
 		FILE_MAP_ALL_ACCESS,
 		0,
 		0,
-		sizeof(KM_REQUEST_GET_PROCESS_HANDLE)
+		sizeof(KM_DRIVER_COMMAND)
 	);
 
-	if (pRequestPointer == nullptr)
+	if (pCommand == nullptr)
 	{
-		cerr << "Error MapViewOfFile(pRequestPointer)" << endl;
+		cerr << "Error MapViewOfFile(pCommand)" << endl;
 		return EXIT_FAILURE;
 	}
 
-	// pRequestPointer->count = 7;
-	// RtlCopyMemory(pRequestPointer, pRequestPointer, sizeof(KM_REQUEST_GET_PROCESS_HANDLE));
+	GetProcessId(pCommand, "explorer.exe");
 
-	cout << "count : " << pRequestPointer->count << endl;
-	cout << "count : " << pRequestPointer->count2 << endl;
+	printf("[-] Process Name : %s\n", pCommand->processName);
+	printf("[-] Process ID   : 0x%p\n", pCommand->processId);
 
-	UnmapViewOfFile(pRequestPointer);
+	// Release the allocated memory
+	VirtualFree(pCommand->processName, 0, MEM_RELEASE);
 
+	UnmapViewOfFile(pCommand);
 	CloseHandle(hMapFileW);
-
 	return EXIT_SUCCESS;
 }

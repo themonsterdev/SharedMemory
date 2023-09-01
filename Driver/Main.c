@@ -22,22 +22,31 @@ VOID DriverLoop()
 {
     DbgPrint("Calling DriverLoop...");
 
-    // Infinite loop.
-    while (TRUE)
-    {
-        NTSTATUS ntStatus = ReadSharedMemory();
-
-        if (NT_SUCCESS(ntStatus) && g_SharedMemoryPointer != NULL)
+    __try {
+        // Infinite loop.
+        while (g_hSharedMemorySection != NULL)
         {
-            PKM_REQUEST_GET_PROCESS_HANDLE pRequest = (PKM_REQUEST_GET_PROCESS_HANDLE)g_SharedMemoryPointer;
-            pRequest->count = 1;
-            pRequest->count2 = 2;
+            NTSTATUS ntStatus = ReadSharedMemory();
 
-            memcpy(g_SharedMemoryPointer, pRequest, sizeof(KM_REQUEST_GET_PROCESS_HANDLE));
+            if (NT_SUCCESS(ntStatus) && g_SharedMemoryPointer != NULL)
+            {
+                PKM_DRIVER_COMMAND pCommand = (PKM_DRIVER_COMMAND)g_SharedMemoryPointer;
+
+                if (pCommand->code == 1)
+                {
+                    pCommand->code = 0;
+
+                    DbgPrint("PKM_DRIVER_COMMAND : Get Process Name (%s)", pCommand->processName);
+
+                    pCommand->processId = GetProcessId(pCommand->processName);
+                    DbgPrint("PKM_DRIVER_COMMAND : Get Process ID (0x%p)", pCommand->processId);
+
+                    memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
+                }
+            }
         }
-
-        break;
     }
+    __except (EXCEPTION_EXECUTE_HANDLER) {}
 }
 
 NTSTATUS DriverEntry(
