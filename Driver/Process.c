@@ -43,3 +43,13 @@ HANDLE GetProcessId(const char* processName)
 
 	return 0;
 }
+
+ULONG64 GetModuleBaseX64(HANDLE handle)
+{
+	PEPROCESS process;
+	if (NT_SUCCESS(PsLookupProcessByProcessId(handle, &process)))
+	{
+		return (ULONG64)PsGetProcessSectionBaseAddress(process);
+	}
+	return 0;
+}

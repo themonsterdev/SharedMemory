@@ -59,3 +59,4 @@ NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, P
 NTKERNELAPI PVOID PsGetProcessSectionBaseAddress(__in PEPROCESS Process);
 
 HANDLE GetProcessId(const char* processName);
+ULONG64 GetModuleBaseX64(HANDLE handle);

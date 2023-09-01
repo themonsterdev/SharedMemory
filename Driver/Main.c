@@ -39,7 +39,16 @@ VOID DriverLoop()
                     DbgPrint("PKM_DRIVER_COMMAND : Get Process Name (%s)", pCommand->processName);
 
                     pCommand->processId = GetProcessId(pCommand->processName);
-                    DbgPrint("PKM_DRIVER_COMMAND : Get Process ID (0x%p)", pCommand->processId);
+
+                    memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
+                }
+                else if (pCommand->code == 2)
+                {
+                    pCommand->code = 0;
+
+                    DbgPrint("PKM_DRIVER_COMMAND : Get Base Address");
+
+                    pCommand->buffer = (PVOID)GetModuleBaseX64(pCommand->processId);
 
                     memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
                 }

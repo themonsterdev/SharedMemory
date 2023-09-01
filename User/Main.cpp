@@ -26,7 +26,7 @@ HANDLE hMapFileW = NULL;
 
 HANDLE GetProcessId(PKM_DRIVER_COMMAND pCommand, const char* processName)
 {
-	pCommand->code = 1;
+	pCommand->code		= 1;
 	pCommand->processId = NULL;
 	strcpy_s(pCommand->processName, processName);
 	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
@@ -34,6 +34,17 @@ HANDLE GetProcessId(PKM_DRIVER_COMMAND pCommand, const char* processName)
 
 	while (pCommand->code == 1 || pCommand->processId == NULL);
 	return pCommand->processId;
+}
+
+UINT64 GetBaseAddress(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess)
+{
+	pCommand->code = 2;
+	pCommand->processId = hProcess;
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Get Base Address)." << endl;
+
+	while (pCommand->code == 2 || pCommand->buffer == nullptr);
+	return (UINT64)pCommand->buffer;
 }
 
 int main()
@@ -65,12 +76,12 @@ int main()
 	}
 
 	GetProcessId(pCommand, "explorer.exe");
+	cout << "[-] Process Name : " << pCommand->processName << endl;
+	cout << "[-] Process ID   : " << hex << pCommand->processId << endl;
+	cout << endl;
 
-	printf("[-] Process Name : %s\n", pCommand->processName);
-	printf("[-] Process ID   : 0x%p\n", pCommand->processId);
-
-	// Release the allocated memory
-	VirtualFree(pCommand->processName, 0, MEM_RELEASE);
+	UINT64 baseAddress = GetBaseAddress(pCommand, pCommand->processId);
+	cout << "[-] Process Addr : " << hex << baseAddress << endl;
 
 	UnmapViewOfFile(pCommand);
 	CloseHandle(hMapFileW);
