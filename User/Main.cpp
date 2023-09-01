@@ -10,7 +10,8 @@ using namespace std;
 
 typedef struct _KM_REQUEST_GET_PROCESS_HANDLE
 {
-	int count;
+	UINT32 count;
+	UINT32 count2;
 }KM_REQUEST_GET_PROCESS_HANDLE, * PKM_REQUEST_GET_PROCESS_HANDLE;
 
 // shared memory mapping
@@ -30,7 +31,7 @@ int main()
 		return EXIT_FAILURE;
 	}
 
-	auto pRequestPointer = MapViewOfFile(
+	const auto pRequestPointer = (PKM_REQUEST_GET_PROCESS_HANDLE)MapViewOfFile(
 		hMapFileW,
 		FILE_MAP_ALL_ACCESS,
 		0,
@@ -44,8 +45,11 @@ int main()
 		return EXIT_FAILURE;
 	}
 
-	PKM_REQUEST_GET_PROCESS_HANDLE pRequest = (PKM_REQUEST_GET_PROCESS_HANDLE)pRequestPointer;
-	cout << "GetProcessId : " << pRequest->count << endl;
+	// pRequestPointer->count = 7;
+	// RtlCopyMemory(pRequestPointer, pRequestPointer, sizeof(KM_REQUEST_GET_PROCESS_HANDLE));
+
+	cout << "count : " << pRequestPointer->count << endl;
+	cout << "count : " << pRequestPointer->count2 << endl;
 
 	UnmapViewOfFile(pRequestPointer);
 

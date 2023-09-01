@@ -30,7 +30,8 @@ VOID DriverLoop()
         if (NT_SUCCESS(ntStatus) && g_SharedMemoryPointer != NULL)
         {
             PKM_REQUEST_GET_PROCESS_HANDLE pRequest = (PKM_REQUEST_GET_PROCESS_HANDLE)g_SharedMemoryPointer;
-            pRequest->count = 8;
+            pRequest->count = 1;
+            pRequest->count2 = 2;
 
             memcpy(g_SharedMemoryPointer, pRequest, sizeof(KM_REQUEST_GET_PROCESS_HANDLE));
         }
@@ -52,7 +53,7 @@ NTSTATUS DriverEntry(
     DriverObject->DriverUnload = DriverUnload;
 
     NTSTATUS ntStatus = STATUS_SUCCESS;
-    
+
     // Create shared memory
     {
         // Call the `CreateSharedMemory` function to create the shared memory.

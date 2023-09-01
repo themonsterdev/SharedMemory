@@ -19,14 +19,16 @@ NTSTATUS CreateSharedMemory()
         DbgPrint("RtlCreateSecurityDescriptor was successfully created : %u", ntStatus);
     }
 
+    // Calculate the size of the discretionary access control list (DACL) including SID lengths.
     {
-        // Calculate the size of the discretionary access control list (DACL) including SID lengths.
         g_DaclLength = sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) * 3
             + RtlLengthSid(SeExports->SeLocalSystemSid)
             + RtlLengthSid(SeExports->SeAliasAdminsSid)
             + RtlLengthSid(SeExports->SeWorldSid);
+    }
 
-        // Allocate memory for the DACL.
+    // Allocate memory for the DACL.
+    {
         g_Dacl = ExAllocatePool2(POOL_FLAG_PAGED, g_DaclLength, SHARED_MEMORY_TAG);
         if (g_Dacl == NULL)
         {
@@ -134,9 +136,9 @@ NTSTATUS CreateSharedMemory()
     );
 
     // Creation of a `LARGE_INTEGER` structure to store the size of the memory section.
-    LARGE_INTEGER sectionSize = { 0 };
-    sectionSize.HighPart = 0;
-    sectionSize.LowPart = 1024 * 10;
+    LARGE_INTEGER lMaxSize = { 0 };
+    lMaxSize.HighPart = 0;
+    lMaxSize.LowPart = 1024 * 10;
 
     // Call to `ZwCreateSection` to create a memory section.
     {
@@ -144,7 +146,7 @@ NTSTATUS CreateSharedMemory()
             &g_hSharedMemorySection,
             SECTION_ALL_ACCESS,
             &objectAttributes,
-            &sectionSize,
+            &lMaxSize,
             PAGE_READWRITE,
             SEC_COMMIT,
             NULL
@@ -164,16 +166,16 @@ NTSTATUS CreateSharedMemory()
     // Call to `ZwMapViewOfSection` to map the memory section into the current process's address space.
     {
         // Definition of the size of the shared memory in bytes.
-        SIZE_T size = 1024 * 10; 
+        SIZE_T ulViewSize = 1024 * 10;
 
         ntStatus = ZwMapViewOfSection(
             g_hSharedMemorySection,
             NtCurrentProcess(),
             &g_SharedMemoryPointer,
             0,
-            size,
+            lMaxSize.LowPart,
             NULL,
-            &size,
+            &ulViewSize,
             ViewShare,
             0,
             PAGE_READWRITE | PAGE_NOCACHE
@@ -190,6 +192,8 @@ NTSTATUS CreateSharedMemory()
 
         DbgPrint("ZwMapViewOfSection was successfully created: %u", ntStatus);
     }
+
+    ExFreePoolWithTag(g_Dacl, SHARED_MEMORY_TAG);
 
     DbgPrint("CreateSharedMemory called finished");
 

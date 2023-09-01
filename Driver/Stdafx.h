@@ -8,5 +8,6 @@
 
 typedef struct _KM_REQUEST_GET_PROCESS_HANDLE
 {
-    int count;
+    UINT32 count;
+    UINT32 count2;
 }KM_REQUEST_GET_PROCESS_HANDLE, * PKM_REQUEST_GET_PROCESS_HANDLE;

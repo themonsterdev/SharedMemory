@@ -12,9 +12,9 @@ PACL                g_Dacl; // A pointer to an Access Control List (ACL) structu
 // `g_SharedMemoryName` stores the name of the shared memory,
 // `g_hSharedMemorySection` is a handle to the shared memory section,
 // `g_SharedMemoryPointer` is a pointer to the shared memory area.
-UNICODE_STRING g_SharedMemoryName = { 0 };
-static HANDLE g_hSharedMemorySection = NULL;	// Initialize handle to NULL.
-static PVOID g_SharedMemoryPointer = NULL;		// Initialize pointer to NULL.
+UNICODE_STRING g_SharedMemoryName;
+HANDLE g_hSharedMemorySection;	// Initialize handle to NULL.
+PVOID g_SharedMemoryPointer;		// Initialize pointer to NULL.
 
 // Creates and configures shared memory with appropriate security settings.
 NTSTATUS CreateSharedMemory();
