@@ -14,6 +14,7 @@ using namespace std;
 #define COMMAND_GET_PEB					3
 #define COMMAND_READ_PROCESS_MEMORY		4
 #define COMMAND_WRITE_PROCESS_MEMORY	5
+#define COMMAND_CLEAR					6
 
 typedef struct _KM_DRIVER_COMMAND {
 	// Memory
@@ -47,6 +48,7 @@ bool OpenSharedMemory()
 	}
 
 	cout << "[Completed] Shared Memory is available to use." << endl;
+	cout << endl;
 	return true;
 }
 
@@ -137,6 +139,16 @@ void WriteVirtualMemory(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess, UINT64 add
 	cout << "[+] Message has been sent to kernel (Write Virtual Memory)." << endl;
 }
 
+void Clear()
+{
+	// COMMAND_CLEAR
+	pCommand->code = COMMAND_CLEAR;
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Clear)." << endl;
+	while (pCommand->code != COMMAND_COMPLETED);
+	cout << endl;
+}
+
 int main()
 {
 	if (!OpenSharedMemory())
@@ -149,7 +161,7 @@ int main()
 		return EXIT_FAILURE;
 	}
 
-	cout << endl;
+	Clear();
 
 	const HANDLE processId = GetProcessId(pCommand, "explorer.exe");
 	cout << "[-] Process Name : " << pCommand->processName << endl;
@@ -158,8 +170,7 @@ int main()
 
 	const UINT64 baseAddress = GetBaseAddress(pCommand, processId);
 	cout << "[-] Process Addr : " << hex << baseAddress << endl;
-
-
+	cout << endl;
 
 	CloseSharedMemory();
 	return EXIT_SUCCESS;

@@ -335,3 +335,53 @@ BOOL WriteVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T siz
     DbgPrint("WriteVirtualMemory: Memory copied successfully.");
     return TRUE;
 }
+
+BOOL CompareData(const char* base, const char* pattern, const char* mask)
+{
+    for (; *mask; ++base, ++pattern, ++mask)
+    {
+        if ('x' == *mask && *base != *pattern)
+        {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
+PVOID FindPattern(PVOID base, int length, const char* pattern, const char* mask)
+{
+    length -= (int)strlen(mask);
+    for (int i = 0; i <= length; ++i)
+    {
+        const char* data = (char*)base;
+        const UINT64 address = (UINT64)&data[i];
+        if (CompareData((char*)address, pattern, mask))
+        {
+            return (PVOID)address;
+        }
+    }
+
+    return 0;
+}
+
+PVOID FindPatternImage(PVOID base, const char* pattern, const char* mask)
+{
+    PVOID match = 0;
+
+    PIMAGE_NT_HEADERS headers = (PIMAGE_NT_HEADERS)((char*)base + ((PIMAGE_DOS_HEADER)base)->e_lfanew);
+    PIMAGE_SECTION_HEADER sections = IMAGE_FIRST_SECTION(headers);
+
+    for (int i = 0; i < headers->FileHeader.NumberOfSections; ++i)
+    {
+        PIMAGE_SECTION_HEADER section = &sections[i];
+        if ('EGAP' == *(PINT)(section->Name) || memcmp(section->Name, ".text", 5) == 0)
+        {
+            match = FindPattern((char*)base + section->VirtualAddress, section->Misc.VirtualSize, pattern, mask);
+            if (match)
+                break;
+        }
+    }
+
+    return match;
+}

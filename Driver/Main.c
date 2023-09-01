@@ -16,11 +16,113 @@ DRIVER_UNLOAD DriverUnload;
 #endif // ALLOC_PRAGMA
 
 // Declaration of the `g_hThread` variable, which will store the handle of the thread.
-HANDLE g_hThread = NULL;
+HANDLE g_hThread = NULL; 
+
+typedef struct _PiDDBCacheEntry
+{
+    LIST_ENTRY		List;
+    UNICODE_STRING	DriverName;
+    ULONG			TimeDateStamp;
+    NTSTATUS		LoadStatus;
+    char			_0x0028[16];
+}PiDDBCacheEntry;
+
+UINT64 Dereference(UINT64 address, UINT32 offset)
+{
+    if (address == 0)
+        return 0;
+    return address + (int)((*(int*)(address + offset) + offset) + sizeof(int));
+}
+
+BOOL CleanPiDDBCacheTable()
+{
+    const PVOID base = GetSystemModuleBase("ntoskrnl.exe");
+    if (base == 0)
+    {
+        DbgPrint("Failed to find \"ntoskrnl.exe\"!");
+        return FALSE;
+    }
+
+    // 48 8d 0d ?? ?? ?? ?? e8 ?? ?? ?? ?? 3d ?? ?? ?? ?? 0f 83
+    const PVOID PiDDBCacheTablePtr = FindPatternImage(
+        base,
+        "\x48\x8d\x0d\x00\x00\x00\x00\xe8\x00\x00\x00\x00\x3d\x00\x00\x00\x00\x0f\x83",
+        "xxx????x????x????xx"
+    );
+    if (PiDDBCacheTablePtr == 0)
+    {
+        DbgPrint("Failed to find \"PiDDBCacheTable\"!");
+        return FALSE;
+    }
+
+    const PRTL_AVL_TABLE PiDDBCacheTable = (PRTL_AVL_TABLE)Dereference((UINT64)PiDDBCacheTablePtr, 3);
+    if (!PiDDBCacheTable)
+    {
+        DbgPrint("Failed to dereference \"PiDDBCacheTable\"!");
+        return FALSE;
+    }
+
+    UINT64 entry_address = (UINT64)(PiDDBCacheTable->BalancedRoot.RightChild) + sizeof(RTL_BALANCED_LINKS);
+
+    PiDDBCacheEntry* entry = (PiDDBCacheEntry*)(entry_address);
+
+    if (entry->TimeDateStamp == 0x57CD1415 || entry->TimeDateStamp == 0x5284EAC3)
+    {
+        entry->TimeDateStamp = 0x54EAC3;
+        entry->DriverName = (UNICODE_STRING)RTL_CONSTANT_STRING(L"monitor.sys");
+    }
+
+    ULONG count = 0;
+    for (PLIST_ENTRY link = entry->List.Flink; link != entry->List.Blink; link = link->Flink, count++)
+    {
+        PiDDBCacheEntry* cache_entry = (PiDDBCacheEntry*)(link);
+
+        if (cache_entry->TimeDateStamp == 0x57CD1415 || cache_entry->TimeDateStamp == 0x5284EAC3)
+        {
+            cache_entry->TimeDateStamp = 0x54EAC4 + count;
+            cache_entry->DriverName = (UNICODE_STRING)RTL_CONSTANT_STRING(L"monitor.sys");
+        }
+    }
+
+    DbgPrint("Success Clean PiDDBCacheTable.");
+    return TRUE;
+}
+
+BOOL CleanUnloadedDrivers()
+{
+    PVOID ntoskrnlBase = GetSystemModuleBase("ntoskrnl.exe");
+
+    if (ntoskrnlBase <= 0)
+    {
+        DbgPrint("Failed to find ntoskrnl.exe!");
+        return FALSE;
+    }
+
+    // 4C 8B ?? ?? ?? ?? ?? 4C 8B C9 4D 85 ?? 74
+    const PVOID mmUnloadedDriversPtr = FindPatternImage(
+        ntoskrnlBase,
+        "\x4C\x8B\x00\x00\x00\x00\x00\x4C\x8B\xC9\x4D\x85\x00\x74",
+        "xx?????xxxxx?x"
+    );
+
+    if (mmUnloadedDriversPtr == 0)
+    {
+        DbgPrint("Failed to find CleanUnloadedDrivers->mmUnloadedDriversPtr!");
+        return FALSE;
+    }
+
+    UINT64 mmUnloadedDrivers = Dereference((UINT64)mmUnloadedDriversPtr, 3);
+    memset(*(UINT64**)mmUnloadedDrivers, 0, 0x7D0);
+
+    DbgPrint("Success clean unloaded drivers.");
+    return TRUE;
+}
 
 VOID DriverLoop()
 {
     DbgPrint("Calling DriverLoop...");
+
+
 
     __try
     {
@@ -72,6 +174,15 @@ VOID DriverLoop()
                     WriteVirtualMemory(pCommand->processId, pCommand->buffer, (PVOID)pCommand->address, pCommand->size);
 
                     memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
+                }
+                else if (pCommand->code == COMMAND_CLEAR)
+                {
+                    pCommand->code = COMMAND_COMPLETED;
+
+                    // DbgPrint("PKM_DRIVER_COMMAND : Clear");
+
+                    CleanPiDDBCacheTable();
+                    CleanUnloadedDrivers();
                 }
             }
         }

@@ -53,3 +53,50 @@ ULONG64 GetModuleBaseX64(HANDLE handle)
 	}
 	return 0;
 }
+
+PVOID GetSystemModuleBase(const char* moduleName)
+{
+	ULONG size = 0;
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+
+	status = ZwQuerySystemInformation(SystemModuleInformation, NULL, size, &size);
+	if (!NT_SUCCESS(status) && status != STATUS_INFO_LENGTH_MISMATCH)
+	{
+		DbgPrint("Failed to find ZwQuerySystemInformation 0x%x!", status);
+		return 0;
+	}
+
+	const PVOID moduleList = ExAllocatePool2(POOL_FLAG_NON_PAGED, size, 'abcd');
+	if (moduleList == 0)
+	{
+		DbgPrint("Failed to find ExAllocatePool2!");
+		return 0;
+	}
+
+	status = ZwQuerySystemInformation(SystemModuleInformation, moduleList, size, &size);
+	if (!NT_SUCCESS(status))
+	{
+		DbgPrint("Failed to find ZwQuerySystemInformation 0x%x!", status);
+		ExFreePoolWithTag(moduleList, 0);
+		return 0;
+	}
+
+	PVOID mobuleBase = 0;
+	const PSYSTEM_MODULE_INFORMATION pSystemModuleInformation = (PSYSTEM_MODULE_INFORMATION)moduleList;
+	const ULONG moduleCount = pSystemModuleInformation->Count;
+
+	for (SIZE_T i = 0; i < moduleCount; i++)
+	{
+		const SYSTEM_MODULE_ENTRY module = pSystemModuleInformation->Modules[i];
+		// const auto currentModuleName = reinterpret_cast<const char*>(module.FullPathName + module.OffsetToFileName);
+		if (strstr(module.FullPathName, moduleName))
+		{
+			mobuleBase = module.ImageBase;
+			break;
+		}
+	}
+
+	ExFreePoolWithTag(moduleList, 0);
+
+	return mobuleBase <= 0 ? 0 : mobuleBase;
+}

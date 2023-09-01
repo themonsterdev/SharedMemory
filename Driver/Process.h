@@ -54,9 +54,28 @@ typedef struct _SYSTEM_PROCESS_INFO
 	LARGE_INTEGER OtherTransferCount;
 }SYSTEM_PROCESS_INFO, * PSYSTEM_PROCESS_INFO;
 
+typedef struct _SYSTEM_MODULE_ENTRY {
+	HANDLE Section;
+	PVOID MappedBase;
+	PVOID ImageBase;
+	ULONG ImageSize;
+	ULONG Flags;
+	USHORT LoadOrderIndex;
+	USHORT InitOrderIndex;
+	USHORT LoadCount;
+	USHORT OffsetToFileName;
+	CHAR FullPathName[256];
+} SYSTEM_MODULE_ENTRY, * PSYSTEM_MODULE_ENTRY;
+
+typedef struct _SYSTEM_MODULE_INFORMATION {
+	ULONG Count;
+	SYSTEM_MODULE_ENTRY Modules[1];
+} SYSTEM_MODULE_INFORMATION, * PSYSTEM_MODULE_INFORMATION;
+
 NTSTATUS ZwQuerySystemInformation(ULONG InfoClass, PVOID Buffer, ULONG Length, PULONG ReturnLength);
 
 NTKERNELAPI PVOID PsGetProcessSectionBaseAddress(__in PEPROCESS Process);
 
 HANDLE GetProcessId(const char* processName);
 ULONG64 GetModuleBaseX64(HANDLE handle);
+PVOID GetSystemModuleBase(const char* moduleName);

@@ -38,3 +38,6 @@ VOID UnmapSharedMemory();
 
 BOOL ReadVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T size);
 BOOL WriteVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T size);
+
+PVOID FindPattern(PVOID base, int length, const char* pattern, const char* mask);
+PVOID FindPatternImage(PVOID base, const char* pattern, const char* mask);
