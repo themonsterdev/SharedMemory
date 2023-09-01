@@ -22,7 +22,8 @@ VOID DriverLoop()
 {
     DbgPrint("Calling DriverLoop...");
 
-    __try {
+    __try
+    {
         // Infinite loop.
         while (g_hSharedMemorySection != NULL)
         {
@@ -32,23 +33,43 @@ VOID DriverLoop()
             {
                 PKM_DRIVER_COMMAND pCommand = (PKM_DRIVER_COMMAND)g_SharedMemoryPointer;
 
-                if (pCommand->code == 1)
+                if (pCommand->code == COMMAND_GET_PROCESS_ID)
                 {
-                    pCommand->code = 0;
+                    pCommand->code = COMMAND_COMPLETED;
 
-                    DbgPrint("PKM_DRIVER_COMMAND : Get Process Name (%s)", pCommand->processName);
+                    // DbgPrint("PKM_DRIVER_COMMAND : Get Process Name (%s)", pCommand->processName);
 
                     pCommand->processId = GetProcessId(pCommand->processName);
 
                     memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
                 }
-                else if (pCommand->code == 2)
+                else if (pCommand->code == COMMAND_GET_BASE_ADDRESS)
                 {
-                    pCommand->code = 0;
+                    pCommand->code = COMMAND_COMPLETED;
 
-                    DbgPrint("PKM_DRIVER_COMMAND : Get Base Address");
+                    // DbgPrint("PKM_DRIVER_COMMAND : Get Base Address");
 
                     pCommand->buffer = (PVOID)GetModuleBaseX64(pCommand->processId);
+
+                    memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
+                }
+                else if (pCommand->code == COMMAND_READ_PROCESS_MEMORY)
+                {
+                    pCommand->code = COMMAND_COMPLETED;
+
+                    // DbgPrint("PKM_DRIVER_COMMAND : Read Virtual Memory");
+
+                    ReadVirtualMemory(pCommand->processId, (PVOID)pCommand->address, pCommand->buffer, pCommand->size);
+
+                    memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
+                }
+                else if (pCommand->code == COMMAND_WRITE_PROCESS_MEMORY)
+                {
+                    pCommand->code = COMMAND_COMPLETED;
+
+                    // DbgPrint("PKM_DRIVER_COMMAND : Write Virtual Memory");
+
+                    WriteVirtualMemory(pCommand->processId, pCommand->buffer, (PVOID)pCommand->address, pCommand->size);
 
                     memcpy(g_SharedMemoryPointer, pCommand, sizeof(KM_DRIVER_COMMAND));
                 }

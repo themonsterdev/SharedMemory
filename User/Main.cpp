@@ -8,9 +8,14 @@
 
 using namespace std;
 
-typedef struct _KM_DRIVER_COMMAND {
-	UINT8		code;
+#define COMMAND_COMPLETED				0
+#define COMMAND_GET_PROCESS_ID			1
+#define COMMAND_GET_BASE_ADDRESS		2
+#define COMMAND_GET_PEB					3
+#define COMMAND_READ_PROCESS_MEMORY		4
+#define COMMAND_WRITE_PROCESS_MEMORY	5
 
+typedef struct _KM_DRIVER_COMMAND {
 	// Memory
 	PVOID		buffer;
 	ULONG64		address;
@@ -19,51 +24,37 @@ typedef struct _KM_DRIVER_COMMAND {
 	// Process
 	CHAR processName[32];
 	HANDLE processId;
+
+	UINT8		code;
 }KM_DRIVER_COMMAND, * PKM_DRIVER_COMMAND;
 
-// shared memory mapping
+// Shared memory mapping
 HANDLE hMapFileW = NULL;
+PKM_DRIVER_COMMAND pCommand = NULL;
 
-HANDLE GetProcessId(PKM_DRIVER_COMMAND pCommand, const char* processName)
-{
-	pCommand->code		= 1;
-	pCommand->processId = NULL;
-	strcpy_s(pCommand->processName, processName);
-	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
-	cout << "[+] Message has been sent to kernel (Get Process Id)." << endl;
-
-	while (pCommand->code == 1 || pCommand->processId == NULL);
-	return pCommand->processId;
-}
-
-UINT64 GetBaseAddress(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess)
-{
-	pCommand->code = 2;
-	pCommand->processId = hProcess;
-	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
-	cout << "[+] Message has been sent to kernel (Get Base Address)." << endl;
-
-	while (pCommand->code == 2 || pCommand->buffer == nullptr);
-	return (UINT64)pCommand->buffer;
-}
-
-int main()
+bool OpenSharedMemory()
 {
 	hMapFileW = OpenFileMapping(
-		FILE_MAP_ALL_ACCESS,
-		FALSE,
-		L"Global\\MySharedMemory"
+		FILE_MAP_ALL_ACCESS,		// Read/Write access
+		FALSE,						// Do not inherit the name
+		L"Global\\MySharedMemory"	// Name of mapping object
 	);
 
 	if (hMapFileW == INVALID_HANDLE_VALUE || hMapFileW == nullptr)
 	{
-		cerr << "Erreur lors de l'ouverture de la mémoire partagée." << endl;
-		return EXIT_FAILURE;
+		cerr << "Could not create file mapping object." << endl;
+		return false;
 	}
 
-	const auto pCommand = (PKM_DRIVER_COMMAND)MapViewOfFile(
-		hMapFileW,
-		FILE_MAP_ALL_ACCESS,
+	cout << "[Completed] Shared Memory is available to use." << endl;
+	return true;
+}
+
+PKM_DRIVER_COMMAND ReadSharedMemory()
+{
+	pCommand = (PKM_DRIVER_COMMAND)MapViewOfFile(
+		hMapFileW,				// Handle to map object
+		FILE_MAP_ALL_ACCESS,	// Read/Write permission
 		0,
 		0,
 		sizeof(KM_DRIVER_COMMAND)
@@ -71,19 +62,105 @@ int main()
 
 	if (pCommand == nullptr)
 	{
-		cerr << "Error MapViewOfFile(pCommand)" << endl;
+		cerr << "Could not map view of file." << endl;
+		return nullptr;
+	}
+
+	return pCommand;
+}
+
+void CloseSharedMemory()
+{
+	if (pCommand != NULL)
+	{
+		UnmapViewOfFile(pCommand);
+		pCommand = NULL;
+	}
+
+	if (hMapFileW != NULL)
+	{
+		CloseHandle(hMapFileW);
+		hMapFileW = NULL;
+	}
+}
+
+HANDLE GetProcessId(PKM_DRIVER_COMMAND pCommand, const char* processName)
+{
+	pCommand->code		= COMMAND_GET_PROCESS_ID;
+	pCommand->processId = NULL;
+	strcpy_s(pCommand->processName, processName);
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Get Process Id)." << endl;
+	while (pCommand->code != COMMAND_COMPLETED || pCommand->processId == NULL);
+	return pCommand->processId;
+}
+
+UINT64 GetBaseAddress(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess)
+{
+	pCommand->code = COMMAND_GET_BASE_ADDRESS;
+	pCommand->processId = hProcess;
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Get Base Address)." << endl;
+
+	while (pCommand->code != COMMAND_COMPLETED || pCommand->buffer == nullptr);
+	return (UINT64)pCommand->buffer;
+}
+
+template <typename T>
+T ReadVirtualMemory(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess, UINT64 address)
+{
+	T buffer{};
+
+	pCommand->code = COMMAND_READ_PROCESS_MEMORY;
+	pCommand->processId = hProcess;
+	pCommand->address = address;
+	pCommand->buffer = &buffer;
+	pCommand->size = sizeof(buffer);
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Read Virtual Memory)." << endl;
+
+	// while (pCommand->code != COMMAND_COMPLETED || pCommand->buffer == nullptr);
+	Sleep(50);
+
+	return buffer;
+}
+
+template <typename T>
+void WriteVirtualMemory(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess, UINT64 address, T buffer, ULONG size = 0)
+{
+	pCommand->code = COMMAND_WRITE_PROCESS_MEMORY;
+	pCommand->processId = hProcess;
+	pCommand->address = address;
+	pCommand->buffer = &buffer;
+	pCommand->size = size == 0 ? sizeof(buffer) : size, false;
+	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
+	cout << "[+] Message has been sent to kernel (Write Virtual Memory)." << endl;
+}
+
+int main()
+{
+	if (!OpenSharedMemory())
+		return EXIT_FAILURE;
+
+	const auto pCommand = ReadSharedMemory();
+	if (pCommand == nullptr)
+	{
+		CloseSharedMemory();
 		return EXIT_FAILURE;
 	}
 
-	GetProcessId(pCommand, "explorer.exe");
-	cout << "[-] Process Name : " << pCommand->processName << endl;
-	cout << "[-] Process ID   : " << hex << pCommand->processId << endl;
 	cout << endl;
 
-	UINT64 baseAddress = GetBaseAddress(pCommand, pCommand->processId);
+	const HANDLE processId = GetProcessId(pCommand, "explorer.exe");
+	cout << "[-] Process Name : " << pCommand->processName << endl;
+	cout << "[-] Process ID   : " << hex << processId << endl;
+	cout << endl;
+
+	const UINT64 baseAddress = GetBaseAddress(pCommand, processId);
 	cout << "[-] Process Addr : " << hex << baseAddress << endl;
 
-	UnmapViewOfFile(pCommand);
-	CloseHandle(hMapFileW);
+
+
+	CloseSharedMemory();
 	return EXIT_SUCCESS;
 }

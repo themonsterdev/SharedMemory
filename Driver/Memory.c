@@ -255,3 +255,83 @@ VOID UnmapSharedMemory()
         g_hSharedMemorySection = NULL;
     }
 }
+
+BOOL ReadVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T size)
+{
+    if (address == 0)
+    {
+        DbgPrint("ReadVirtualMemory: Invalid address.");
+        return FALSE;
+    }
+
+    if (buffer == NULL)
+    {
+        DbgPrint("ReadVirtualMemory: Invalid buffer.");
+        return FALSE;
+    }
+
+    if (size == 0)
+    {
+        DbgPrint("ReadVirtualMemory: Invalid size (zero).");
+        return FALSE;
+    }
+
+    SIZE_T bytes = 0;
+    PEPROCESS process;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(hProcess, &process);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        DbgPrint("ReadVirtualMemory: Process lookup failed (status: 0x%X).", ntStatus);
+        return FALSE;
+    }
+
+    ntStatus = MmCopyVirtualMemory(process, address, PsGetCurrentProcess(), buffer, size, KernelMode, &bytes);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        DbgPrint("ReadVirtualMemory: Memory copy failed (status: 0x%X).", ntStatus);
+        return FALSE;
+    }
+
+    DbgPrint("ReadVirtualMemory: Memory copied successfully.");
+    return TRUE;
+}
+
+BOOL WriteVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T size)
+{
+    if (address == 0)
+    {
+        DbgPrint("WriteVirtualMemory: Invalid address.");
+        return FALSE;
+    }
+
+    if (buffer == NULL)
+    {
+        DbgPrint("WriteVirtualMemory: Invalid buffer.");
+        return FALSE;
+    }
+
+    if (size == 0)
+    {
+        DbgPrint("WriteVirtualMemory: Invalid size (zero).");
+        return FALSE;
+    }
+
+    SIZE_T bytes = 0;
+    PEPROCESS process;
+    NTSTATUS ntStatus = PsLookupProcessByProcessId(hProcess, &process);
+    if (!NT_SUCCESS(ntStatus))
+    {
+        DbgPrint("WriteVirtualMemory: Process lookup failed (status: 0x%X).", ntStatus);
+        return FALSE;
+    }
+
+    ntStatus = MmCopyVirtualMemory(PsGetCurrentProcess(), address, process, buffer, size, KernelMode, &bytes) == STATUS_SUCCESS;
+    if (!NT_SUCCESS(ntStatus))
+    {
+        DbgPrint("WriteVirtualMemory: Memory copy failed (status: 0x%X).", ntStatus);
+        return FALSE;
+    }
+
+    DbgPrint("WriteVirtualMemory: Memory copied successfully.");
+    return TRUE;
+}

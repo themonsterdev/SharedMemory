@@ -55,6 +55,10 @@ sc delete Driver
 - This example demonstrates shared memory communication and basic driver operations. It's essential to adapt the code for production use, including proper error handling and security considerations.
 - This code is for educational purposes and should not be used in a production environment without thorough testing and customization.
 
+## Ressources
+
+- [fengjixuchui/SharedMemory-By-Frankoo](https://github.com/fengjixuchui/SharedMemory-By-Frankoo)
+
 ## License
 
 This code is provided under the MIT License. See the [LICENSE](LICENSE) file for details.

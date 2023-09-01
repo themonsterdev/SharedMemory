@@ -1,5 +1,16 @@
 #pragma once
 
+NTSTATUS NTAPI MmCopyVirtualMemory
+(
+	PEPROCESS SourceProcess,
+	PVOID SourceAddress,
+	PEPROCESS TargetProcess,
+	PVOID TargetAddress,
+	SIZE_T BufferSize,
+	KPROCESSOR_MODE PreviousMode,
+	PSIZE_T ReturnSize
+);
+
 // Define a custom tag for memory allocations.
 #define SHARED_MEMORY_TAG 'KDSM'
 
@@ -24,3 +35,6 @@ NTSTATUS ReadSharedMemory();
 
 // Unmaps the shared memory section and closes its handle.
 VOID UnmapSharedMemory();
+
+BOOL ReadVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T size);
+BOOL WriteVirtualMemory(HANDLE hProcess, PVOID address, PVOID buffer, SIZE_T size);
