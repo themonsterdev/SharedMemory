@@ -2,10 +2,6 @@
 #include <aclapi.h>
 #include <iostream>
 
-// Shared Memory
-// https://github.com/fengjixuchui/SharedMemory-By-Frankoo/tree/master
-// https://github.com/IAmTapped/Rust-Cheat-Shared-Memory-Driver/tree/main
-
 using namespace std;
 
 #define COMMAND_COMPLETED				0
@@ -141,7 +137,6 @@ void WriteVirtualMemory(PKM_DRIVER_COMMAND pCommand, HANDLE hProcess, UINT64 add
 
 void Clear()
 {
-	// COMMAND_CLEAR
 	pCommand->code = COMMAND_CLEAR;
 	RtlCopyMemory(pCommand, pCommand, sizeof(KM_DRIVER_COMMAND));
 	cout << "[+] Message has been sent to kernel (Clear)." << endl;

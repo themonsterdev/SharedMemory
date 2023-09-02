@@ -64,7 +64,8 @@ BOOL CleanPiDDBCacheTable()
 
     UINT64 entry_address = (UINT64)(PiDDBCacheTable->BalancedRoot.RightChild) + sizeof(RTL_BALANCED_LINKS);
 
-    PiDDBCacheEntry* entry = (PiDDBCacheEntry*)(entry_address);
+    PiDDBCacheEntry* entry = (PiDDBCacheEntry*)entry_address;
+    // DbgPrint("entry : %S.", entry->DriverName.Buffer); // Ntfs.sys
 
     if (entry->TimeDateStamp == 0x57CD1415 || entry->TimeDateStamp == 0x5284EAC3)
     {
@@ -75,11 +76,13 @@ BOOL CleanPiDDBCacheTable()
     ULONG count = 0;
     for (PLIST_ENTRY link = entry->List.Flink; link != entry->List.Blink; link = link->Flink, count++)
     {
-        PiDDBCacheEntry* cache_entry = (PiDDBCacheEntry*)(link);
+        PiDDBCacheEntry* cache_entry = (PiDDBCacheEntry*)link;
+        // DbgPrint("Two : %S.", entry->DriverName.Buffer); // Ntfs.sys
 
         if (cache_entry->TimeDateStamp == 0x57CD1415 || cache_entry->TimeDateStamp == 0x5284EAC3)
         {
             cache_entry->TimeDateStamp = 0x54EAC4 + count;
+
             cache_entry->DriverName = (UNICODE_STRING)RTL_CONSTANT_STRING(L"monitor.sys");
         }
     }
@@ -121,8 +124,6 @@ BOOL CleanUnloadedDrivers()
 VOID DriverLoop()
 {
     DbgPrint("Calling DriverLoop...");
-
-
 
     __try
     {
